@@ -7,4 +7,7 @@ require (
 	github.com/golang/protobuf v1.5.3
 )
 
-require google.golang.org/protobuf v1.26.0 // indirect
+require (
+	golang.org/x/net v0.25.0
+	google.golang.org/protobuf v1.26.0 // indirect
+)

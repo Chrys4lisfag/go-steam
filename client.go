@@ -13,6 +13,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"golang.org/x/net/proxy"
+
 	"github.com/paralin/go-steam/cryptoutil"
 	"github.com/paralin/go-steam/netutil"
 	. "github.com/paralin/go-steam/protocol"
@@ -49,11 +51,12 @@ type Client struct {
 
 	ConnectionTimeout time.Duration
 
-	mutex     sync.RWMutex // guarding conn and writeChan
-	conn      connection
-	writeChan chan IMsg
-	writeBuf  *bytes.Buffer
-	heartbeat *time.Ticker
+	mutex       sync.RWMutex // guarding conn and writeChan
+	conn        connection
+	writeChan   chan IMsg
+	writeBuf    *bytes.Buffer
+	heartbeat   *time.Ticker
+	proxyDialer *proxy.Dialer
 }
 
 type PacketHandler interface {
@@ -129,6 +132,14 @@ func (c *Client) Connected() bool {
 	return c.conn != nil
 }
 
+func (c *Client) SetProxyDialer(dialer *proxy.Dialer) {
+	if c.Connected() {
+		c.Disconnect()
+	}
+
+	c.proxyDialer = dialer
+}
+
 // Connects to a random Steam server and returns its address.
 // If this client is already connected, it is disconnected first.
 // This method tries to use an address from the Steam Directory and falls
@@ -156,7 +167,7 @@ func (c *Client) ConnectTo(addr *netutil.PortAddr) {
 func (c *Client) ConnectToBind(addr *netutil.PortAddr, local *net.TCPAddr) {
 	c.Disconnect()
 
-	conn, err := dialTCP(local, addr.ToTCPAddr())
+	conn, err := dialTCP(c.proxyDialer, local, addr.ToTCPAddr())
 	if err != nil {
 		c.Fatalf("Connect failed: %v", err)
 		return

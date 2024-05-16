@@ -9,6 +9,8 @@ import (
 	"net"
 	"sync"
 
+	"golang.org/x/net/proxy"
+
 	"github.com/paralin/go-steam/cryptoutil"
 	. "github.com/paralin/go-steam/protocol"
 )
@@ -29,8 +31,20 @@ type tcpConnection struct {
 	cipherMutex sync.RWMutex
 }
 
-func dialTCP(laddr, raddr *net.TCPAddr) (*tcpConnection, error) {
-	conn, err := net.DialTCP("tcp", laddr, raddr)
+func dialTCP(maybeProxyDialer *proxy.Dialer, laddr, raddr *net.TCPAddr) (*tcpConnection, error) {
+	var conn *net.TCPConn
+	var err error
+	if maybeProxyDialer != nil {
+		gConn, err := (*maybeProxyDialer).Dial("tcp", raddr.String())
+		if err != nil {
+			return nil, err
+		}
+
+		conn = gConn.(*net.TCPConn)
+	} else {
+		conn, err = net.DialTCP("tcp", laddr, raddr)
+	}
+
 	if err != nil {
 		return nil, err
 	}
